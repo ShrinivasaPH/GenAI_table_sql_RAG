@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Table-Aware RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-mark">⌗</div>
+    <div>
+      <h1>Table-Aware RAG</h1>
+      <p>Tables → SQLite · Prose → FAISS</p>
+    </div>
+  </div>
+
+  <div class="side-section">
+    <h2>Document</h2>
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept=".pdf" hidden>
+      <span class="dz-icon">↑</span>
+      <span class="dz-text">Drop a PDF here<br>or click to browse</span>
+    </label>
+    <div class="ingest-status" id="ingestStatus"></div>
+  </div>
+
+  <div class="side-section" id="tablesSection" hidden>
+    <h2>Extracted tables</h2>
+    <div class="table-list" id="tableList"></div>
+  </div>
+
+  <div class="side-footer">
+    <span class="health-dot" id="healthDot"></span>
+    <span id="healthText">Checking backend…</span>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="chat" id="chat">
+    <div class="empty-state" id="emptyState">
+      <div class="es-badge-row">
+        <span class="badge badge-sql">SQL</span>
+        <span class="badge badge-vector">VECTOR</span>
+        <span class="badge badge-hybrid">HYBRID</span>
+      </div>
+      <h2>Ask about numbers and prose in one place</h2>
+      <p>Upload a PDF on the left. Tables are converted into SQLite for exact
+      numeric answers; paragraphs are embedded into FAISS for semantic search.
+      A router picks the path per question — the evidence panel shows you which.</p>
+    </div>
+  </div>
+
+  <form class="composer" id="composer">
+    <input type="text" id="questionInput" placeholder="Ask about the document (numbers welcome)…" autocomplete="off">
+    <button type="submit" id="sendBtn">Ask</button>
+  </form>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
