@@ -7,7 +7,8 @@ Run from the project root:
 Then open http://localhost:8000 (frontend is served as static files).
 Env:  export OPENAI_API_KEY=sk-...
 """
-
+from dotenv import load_dotenv
+load_dotenv()
 import os
 from pathlib import Path
 

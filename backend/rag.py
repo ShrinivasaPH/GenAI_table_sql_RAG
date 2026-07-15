@@ -26,6 +26,7 @@ import faiss
 import pdfplumber
 from openai import OpenAI
 
+
 CHAT_MODEL = "gpt-4o-mini"
 EMBED_MODEL = "text-embedding-3-small"
 CHUNK_SIZE = 900          # chars
