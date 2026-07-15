@@ -55,6 +55,13 @@ def table_to_df(raw: list) -> pd.DataFrame | None:
     if not raw or len(raw) < 2:
         return None
     header = [sanitize(h, f"col_{i}") for i, h in enumerate(raw[0])]
+    seen: dict[str, int] = {}
+    for i, h in enumerate(header):          # dedupe: revenue, revenue_2, ...
+        if h in seen:
+            seen[h] += 1
+            header[i] = f"{h}_{seen[h]}"
+        else:
+            seen[h] = 1
     df = pd.DataFrame(raw[1:], columns=header)
     df = df.replace("", np.nan).dropna(how="all").dropna(axis=1, how="all")
     if df.empty:
