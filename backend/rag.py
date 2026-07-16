@@ -1,3 +1,4 @@
+# built on: Python 3.12.0
 """
 Table-Aware RAG engine (framework-agnostic).
 
@@ -37,6 +38,18 @@ _client: OpenAI | None = None
 
 
 def client() -> OpenAI:
+    """
+    Initializes and returns a singleton instance of the OpenAI client.
+
+    This function ensures that the OpenAI client is lazily initialized, allowing the server
+    to start without requiring the `OPENAI_API_KEY` to be set initially. If the client
+    instance (`_client`) is not already created, it initializes a new instance of the
+    OpenAI client. Subsequent calls to this function will return the already initialized
+    instance.
+
+    Returns:
+        OpenAI: A singleton instance of the OpenAI client.
+    """
     """Lazy init so the server can boot without OPENAI_API_KEY set."""
     global _client
     if _client is None:

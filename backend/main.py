@@ -1,3 +1,4 @@
+# built on: Python 3.12.0
 """
 Table-Aware RAG — FastAPI backend.
 
