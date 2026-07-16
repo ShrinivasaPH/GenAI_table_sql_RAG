@@ -5,6 +5,7 @@ const chat = $("chat");
 const composer = $("composer");
 const input = $("questionInput");
 const sendBtn = $("sendBtn");
+let history = [];   // [{role, content}] — sent with each question, cleared with the chat
 
 /* ---------------- composer state + empty state ---------------- */
 
@@ -21,6 +22,7 @@ function setComposerEnabled(on) {
 function restoreEmptyState() {
   chat.innerHTML = EMPTY_STATE_HTML;
   $("clearChatBtn").hidden = true;
+  history = [];
 }
 
 /* ---------------- health check ---------------- */
@@ -204,11 +206,12 @@ composer.addEventListener("submit", async (e) => {
     const r = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: q }),
+      body: JSON.stringify({ question: q, history: history.slice(-8) }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || "Request failed");
     pending.replaceWith(renderAssistant(d));
+    history.push({ role: "user", content: q }, { role: "assistant", content: d.answer });
   } catch (err) {
     pending.replaceWith(renderAssistantError(err.message));
   } finally {
@@ -223,6 +226,7 @@ function renderAssistant(d) {
 
   const meta = el("div", "msg-meta");
   meta.appendChild(badgeFor(d.route || "hybrid"));
+  if (d.standalone) meta.appendChild(el("span", "rewritten", `→ ${d.standalone}`));
   msg.appendChild(meta);
 
   msg.appendChild(el("div", "bubble", d.answer));

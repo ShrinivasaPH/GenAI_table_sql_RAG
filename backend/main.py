@@ -25,8 +25,14 @@ store = RAGStore()
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
 class ChatRequest(BaseModel):
     question: str
+    history: list[ChatMessage] = []
 
 
 @app.get("/api/health")
@@ -64,7 +70,9 @@ def chat(req: ChatRequest):
     if not q:
         raise HTTPException(400, "Question is empty.")
     try:
-        result = store.answer(q)
+        history = [m.model_dump() for m in req.history[-8:]
+                   if m.role in ("user", "assistant")]
+        result = store.answer(q, history)
     except Exception as e:
         raise HTTPException(500, f"Answer failed: {e}")
     if "error" in result:

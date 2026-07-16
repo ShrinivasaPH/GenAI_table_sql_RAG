@@ -98,6 +98,13 @@ def chat(system: str, user: str) -> str:
     )
     return res.choices[0].message.content.strip()
 
+def chat_messages(system: str, messages: list[dict]) -> str:
+    res = client().chat.completions.create(
+        model=CHAT_MODEL,
+        messages=[{"role": "system", "content": system}, *messages],
+        temperature=0,
+    )
+    return res.choices[0].message.content.strip()
 
 # ---------------------------------------------------------------- store
 
@@ -178,7 +185,19 @@ class RAGStore:
             }
 
     # -------- routing + answering
-
+    def condense(self, question: str, history: list[dict]) -> str:
+        """Rewrite a follow-up into a standalone question for routing/retrieval."""
+        if not history:
+            return question
+        transcript = "\n".join(f"{m['role']}: {m['content']}" for m in history[-6:])
+        return chat(
+            "Rewrite the user's latest question as ONE standalone question, "
+            "resolving pronouns and references ('it', 'that city', 'the second one') "
+            "using the conversation. Return ONLY the rewritten question. "
+            "If it is already standalone, return it unchanged.",
+            f"Conversation:\n{transcript}\n\nLatest question: {question}",
+        )
+    
     def route(self, question: str) -> str:
         if self.tables and not self.chunks:
             return "sql"
@@ -220,18 +239,20 @@ class RAGStore:
         ctx = "\n\n---\n\n".join(h["text"] for h in hits)
         return ctx, hits
 
-    def answer(self, question: str) -> dict:
+    def answer(self, question: str, history: list[dict] | None = None) -> dict:
         with self.lock:
             if not self.tables and not self.chunks:
                 return {"error": "No document ingested yet. Upload a PDF first."}
 
-            route = self.route(question)
+            history = history or []
+            standalone = self.condense(question, history)
+            route = self.route(standalone)
             evidence: dict = {"route": route}
             ctx_parts = []
 
             if route in ("sql", "hybrid"):
                 try:
-                    ctx, sql, rows = self.sql_context(question)
+                    ctx, sql, rows = self.sql_context(standalone)
                     ctx_parts.append(ctx)
                     evidence["sql"] = sql
                     evidence["rows"] = rows
@@ -242,15 +263,20 @@ class RAGStore:
                         evidence["route"] = "vector (sql failed)"
 
             if route in ("vector", "hybrid") or "sql_error" in evidence:
-                ctx, hits = self.vector_context(question)
+                ctx, hits = self.vector_context(standalone)
                 if ctx:
                     ctx_parts.append(ctx)
                     evidence["chunks"] = hits
 
             full_ctx = "\n\n=====\n\n".join(ctx_parts)
-            ans = chat(
-                "Answer using ONLY the provided context. Quote exact numbers from SQL "
-                "results verbatim — never estimate. If the context is insufficient, say so.",
-                f"Context:\n{full_ctx}\n\nQuestion: {question}",
+            ans = chat_messages(
+                "Answer using ONLY the provided context and the conversation so far. "
+                "Quote exact numbers from SQL results verbatim — never estimate. "
+                "If the context is insufficient, say so.",
+                [*history[-6:],
+                 {"role": "user",
+                  "content": f"Context:\n{full_ctx}\n\nQuestion: {standalone}"}],
             )
+            if standalone != question:
+                evidence["standalone"] = standalone
             return {"answer": ans, **evidence}
