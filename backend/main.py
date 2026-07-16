@@ -34,9 +34,7 @@ def health():
     return {
         "status": "ok",
         "openai_key_set": bool(os.getenv("OPENAI_API_KEY")),
-        "document": store.filename,
-        "tables": len(store.tables),
-        "chunks": len(store.chunks),
+        **store.status(),
     }
 
 

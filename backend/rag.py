@@ -105,15 +105,16 @@ class RAGStore:
     """Holds everything for one ingested document. In-memory, single-tenant POC."""
 
     def __init__(self):
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.reset()
 
     def reset(self):
-        self.conn = sqlite3.connect(":memory:", check_same_thread=False)
-        self.chunks: list[str] = []
-        self.tables: list[str] = []
-        self.index: faiss.Index | None = None
-        self.filename: str | None = None
+        with self.lock:
+            self.conn = sqlite3.connect(":memory:", check_same_thread=False)
+            self.chunks: list[str] = []
+            self.tables: list[str] = []
+            self.index: faiss.Index | None = None
+            self.filename: str | None = None
 
     # -------- ingestion
 
@@ -158,14 +159,23 @@ class RAGStore:
         return "\n".join(lines)
 
     def table_preview(self, name: str, limit: int = 10) -> dict:
-        df = pd.read_sql(f'SELECT * FROM "{name}" LIMIT {int(limit)}', self.conn)
-        total = self.conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
-        return {
-            "name": name,
-            "columns": list(df.columns),
-            "rows": json.loads(df.to_json(orient="values")),
-            "total_rows": total,
-        }
+        with self.lock:
+            df = pd.read_sql(f'SELECT * FROM "{name}" LIMIT {int(limit)}', self.conn)
+            total = self.conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+            return {
+                "name": name,
+                "columns": list(df.columns),
+                "rows": json.loads(df.to_json(orient="values")),
+                "total_rows": total,
+            }
+
+    def status(self) -> dict:
+        with self.lock:
+            return {
+                "document": self.filename,
+                "tables": [self.table_preview(t) for t in self.tables],
+                "chunk_count": len(self.chunks),
+            }
 
     # -------- routing + answering
 
@@ -211,35 +221,36 @@ class RAGStore:
         return ctx, hits
 
     def answer(self, question: str) -> dict:
-        if not self.tables and not self.chunks:
-            return {"error": "No document ingested yet. Upload a PDF first."}
+        with self.lock:
+            if not self.tables and not self.chunks:
+                return {"error": "No document ingested yet. Upload a PDF first."}
 
-        route = self.route(question)
-        evidence: dict = {"route": route}
-        ctx_parts = []
+            route = self.route(question)
+            evidence: dict = {"route": route}
+            ctx_parts = []
 
-        if route in ("sql", "hybrid"):
-            try:
-                ctx, sql, rows = self.sql_context(question)
-                ctx_parts.append(ctx)
-                evidence["sql"] = sql
-                evidence["rows"] = rows
-            except Exception as e:
-                evidence["sql_error"] = str(e)
-                if route == "sql":
-                    route = "vector"          # graceful fallback
-                    evidence["route"] = "vector (sql failed)"
+            if route in ("sql", "hybrid"):
+                try:
+                    ctx, sql, rows = self.sql_context(question)
+                    ctx_parts.append(ctx)
+                    evidence["sql"] = sql
+                    evidence["rows"] = rows
+                except Exception as e:
+                    evidence["sql_error"] = str(e)
+                    if route == "sql":
+                        route = "vector"          # graceful fallback
+                        evidence["route"] = "vector (sql failed)"
 
-        if route in ("vector", "hybrid") or "sql_error" in evidence:
-            ctx, hits = self.vector_context(question)
-            if ctx:
-                ctx_parts.append(ctx)
-                evidence["chunks"] = hits
+            if route in ("vector", "hybrid") or "sql_error" in evidence:
+                ctx, hits = self.vector_context(question)
+                if ctx:
+                    ctx_parts.append(ctx)
+                    evidence["chunks"] = hits
 
-        full_ctx = "\n\n=====\n\n".join(ctx_parts)
-        ans = chat(
-            "Answer using ONLY the provided context. Quote exact numbers from SQL "
-            "results verbatim — never estimate. If the context is insufficient, say so.",
-            f"Context:\n{full_ctx}\n\nQuestion: {question}",
-        )
-        return {"answer": ans, **evidence}
+            full_ctx = "\n\n=====\n\n".join(ctx_parts)
+            ans = chat(
+                "Answer using ONLY the provided context. Quote exact numbers from SQL "
+                "results verbatim — never estimate. If the context is insufficient, say so.",
+                f"Context:\n{full_ctx}\n\nQuestion: {question}",
+            )
+            return {"answer": ans, **evidence}

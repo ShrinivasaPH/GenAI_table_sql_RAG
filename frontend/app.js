@@ -33,13 +33,28 @@ async function checkHealth() {
     $("healthText").textContent = d.openai_key_set
       ? "backend ready"
       : "OPENAI_API_KEY not set";
-    if (d.document) setComposerEnabled(true);
+    if (d.document) restoreDocumentState(d);
   } catch {
     $("healthDot").className = "health-dot";
     $("healthText").textContent = "backend unreachable";
   }
 }
 checkHealth();
+
+function restoreDocumentState(d) {
+  setComposerEnabled(true);
+  const status = $("ingestStatus");
+  status.innerHTML = "";
+  status.append(
+    el("span", "fname", d.document),
+    Object.assign(el("span", "ok"),
+      { textContent: `${d.tables.length} tables → SQLite · ${d.chunk_count} chunks → FAISS` })
+  );
+  const rm = el("button", "remove-btn", "✕ remove file");
+  rm.addEventListener("click", removeDocument);
+  status.appendChild(rm);
+  renderTableList(d.tables);
+}
 
 /* ---------------- helpers ---------------- */
 
@@ -168,8 +183,6 @@ async function showTablePreview(name) {
 }
 
 /* ---------------- chat ---------------- */
-
-composer.addEventListener
 
 composer.addEventListener("submit", async (e) => {
   e.preventDefault();
