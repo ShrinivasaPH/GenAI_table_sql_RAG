@@ -2,6 +2,26 @@
 
 const $ = (id) => document.getElementById(id);
 const chat = $("chat");
+const composer = $("composer");
+const input = $("questionInput");
+const sendBtn = $("sendBtn");
+
+/* ---------------- composer state + empty state ---------------- */
+
+const EMPTY_STATE_HTML = document.getElementById("emptyState").outerHTML;
+
+function setComposerEnabled(on) {
+  input.disabled = !on;
+  sendBtn.disabled = !on;
+  input.placeholder = on
+    ? "Ask about the document (numbers welcome)…"
+    : "Upload a PDF to start…";
+}
+
+function restoreEmptyState() {
+  chat.innerHTML = EMPTY_STATE_HTML;
+  $("clearChatBtn").hidden = true;
+}
 
 /* ---------------- health check ---------------- */
 
@@ -13,6 +33,7 @@ async function checkHealth() {
     $("healthText").textContent = d.openai_key_set
       ? "backend ready"
       : "OPENAI_API_KEY not set";
+    if (d.document) setComposerEnabled(true);
   } catch {
     $("healthDot").className = "health-dot";
     $("healthText").textContent = "backend unreachable";
@@ -34,6 +55,7 @@ function scrollDown() { chat.scrollTop = chat.scrollHeight; }
 function hideEmptyState() {
   const es = $("emptyState");
   if (es) es.remove();
+  $("clearChatBtn").hidden = false;
 }
 
 function badgeFor(route) {
@@ -109,7 +131,11 @@ async function ingest(file) {
       Object.assign(el("span", "ok"),
         { textContent: `${d.tables.length} tables → SQLite · ${d.chunk_count} chunks → FAISS` })
     );
+    const rm = el("button", "remove-btn", "✕ remove file");
+    rm.addEventListener("click", removeDocument);
+    status.appendChild(rm);
     renderTableList(d.tables);
+    setComposerEnabled(true);
   } catch (err) {
     status.innerHTML = "";
     status.append(el("span", "err", err.message));
@@ -143,9 +169,7 @@ async function showTablePreview(name) {
 
 /* ---------------- chat ---------------- */
 
-const composer = $("composer");
-const input = $("questionInput");
-const sendBtn = $("sendBtn");
+composer.addEventListener
 
 composer.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -218,3 +242,17 @@ function renderAssistantError(message) {
   msg.appendChild(el("div", "bubble", `⚠ ${message}`));
   return msg;
 }
+
+/* ---------------- remove document / clear chat ---------------- */
+
+async function removeDocument() {
+  await fetch("/api/document", { method: "DELETE" });
+  $("ingestStatus").innerHTML = "";
+  $("fileInput").value = "";
+  $("tablesSection").hidden = true;
+  $("tableList").innerHTML = "";
+  restoreEmptyState();          // chat answers referenced this doc — clear them too
+  setComposerEnabled(false);
+}
+
+$("clearChatBtn").addEventListener("click", restoreEmptyState);

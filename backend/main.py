@@ -73,6 +73,11 @@ def chat(req: ChatRequest):
         raise HTTPException(409, result["error"])
     return result
 
+@app.delete("/api/document")
+def remove_document():
+    """Drop the ingested document: SQLite tables, FAISS index, chunks."""
+    store.reset()
+    return {"status": "cleared"}
 
 # ---- static frontend (mounted last so /api/* wins) ----
 

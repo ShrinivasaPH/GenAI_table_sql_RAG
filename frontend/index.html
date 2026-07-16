@@ -41,6 +41,9 @@
 </aside>
 
 <main class="main">
+  <header class="main-header">
+    <button class="mh-btn" id="clearChatBtn" hidden>✕ Clear chat</button>
+  </header>
   <div class="chat" id="chat">
     <div class="empty-state" id="emptyState">
       <div class="es-badge-row">
@@ -56,8 +59,8 @@
   </div>
 
   <form class="composer" id="composer">
-    <input type="text" id="questionInput" placeholder="Ask about the document (numbers welcome)…" autocomplete="off">
-    <button type="submit" id="sendBtn">Ask</button>
+    <input type="text" id="questionInput" placeholder="Upload a PDF to start…" autocomplete="off" disabled>
+    <button type="submit" id="sendBtn" disabled>Ask</button>
   </form>
 </main>
 
