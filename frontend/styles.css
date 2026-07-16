@@ -134,7 +134,7 @@ body {
 .evidence { margin-top: 10px; }
 .evidence > summary {
   cursor: pointer; font-size: 12.5px; color: var(--muted);
-  font-family: var(--mono); user-select: none;
+  font-family: var(--mono); -webkit-user-select: none; user-select: none;
 }
 .evidence[open] > summary { margin-bottom: 8px; }
 
